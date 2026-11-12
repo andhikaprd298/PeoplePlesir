@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>People Plesir — Your Way to Plesir, Your Way to Explore</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={theme:{extend:{fontFamily:{sans:['"Plus Jakarta Sans"','sans-serif']}}}}</script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+body{font-family:'Plus Jakarta Sans',sans-serif;background:#FAF8F1;color:#26332D;overflow-x:hidden}
+@keyframes fi{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.fade{animation:fi .35s ease-out forwards}
+@keyframes sp{to{transform:rotate(360deg)}}.spin{animation:sp 8s linear infinite}
+.pb-safe{padding-bottom:env(safe-area-inset-bottom,.75rem)}
+</style></head>
+<body>
+<div id="toast" class="fixed top-4 left-1/2 -translate-x-1/2 z-[100] pointer-events-none transition-all duration-300 opacity-0 -translate-y-4"><div id="toast-box" class="px-6 py-3 rounded-full shadow-xl font-semibold text-sm bg-[#245C45] text-white"></div></div>
+
+<nav class="sticky top-0 z-40 bg-[#FAF8F1]/90 backdrop-blur-md border-b border-[#A8C3A0]/20">
+<div class="max-w-7xl mx-auto px-4 md:px-6 flex justify-between items-center h-16 md:h-20">
+<div class="flex items-center cursor-pointer" onclick="go('home')"><div class="w-10 h-10 bg-[#245C45] rounded-xl flex items-center justify-center mr-2.5"><i data-lucide="palmtree" class="text-white w-6 h-6"></i></div><span class="text-2xl font-extrabold text-[#245C45]">People<span class="text-[#E99555]">Plesir</span></span></div>
+<div class="hidden md:flex items-center space-x-8" id="dnav"></div>
+<div class="hidden md:block" id="dauth"></div>
+</div></nav>
+
+<main id="main" class="min-h-[calc(100vh-160px)] pb-24 md:pb-0"></main>
+
+<div class="fixed bottom-20 md:bottom-6 right-4 md:right-6 z-50">
+<div id="chat" class="hidden absolute bottom-16 right-0 w-[calc(100vw-2rem)] sm:w-96 bg-white rounded-3xl shadow-2xl border border-[#A8C3A0]/40 overflow-hidden flex-col mb-3 h-[480px] max-h-[70vh] fade">
+<div class="bg-[#245C45] p-4 text-white flex justify-between items-center"><div><h3 class="font-bold text-sm">PlesirBot</h3><p class="text-xs text-[#A8C3A0]">Asisten Wisata Banyumas</p></div><button onclick="toggleChat()"><i data-lucide="x" class="w-5 h-5"></i></button></div>
+<div id="msgs" class="flex-1 p-4 overflow-y-auto bg-[#FAF8F1] space-y-3"></div>
+<form onsubmit="chatSend(event)" class="p-3 bg-white border-t flex"><input id="cin" placeholder="Tanya rute, kuliner, atau Open Trip..." class="flex-1 bg-[#FAF8F1] rounded-full px-4 py-2 outline-none text-sm"><button class="ml-2 bg-[#245C45] text-white p-2.5 rounded-full"><i data-lucide="send" class="w-4 h-4"></i></button></form>
+</div>
+<button onclick="toggleChat()" class="bg-[#245C45] text-white p-4 rounded-full shadow-xl flex items-center space-x-2"><i data-lucide="message-circle" class="w-6 h-6 text-[#E99555]"></i><span class="hidden sm:inline font-bold text-sm">Tanya PlesirBot</span></button>
+</div>
+
+<div class="md:hidden fixed bottom-0 inset-x-0 bg-white border-t z-40 pb-safe"><div class="flex justify-around items-center h-16" id="mnav"></div></div>
+<div id="modal"></div>
+
+<footer class="bg-[#26332D] text-white py-12 rounded-t-[2rem] mt-12 mb-16 md:mb-0"><div class="max-w-7xl mx-auto px-6 grid md:grid-cols-4 gap-10">
+<div class="md:col-span-2"><div class="text-2xl font-extrabold mb-4">People<span class="text-[#E99555]">Plesir</span></div><p class="text-gray-400 text-sm max-w-sm mb-4">Platform digital terpadu untuk merencanakan perjalanan, eksplorasi kuliner, dan pemesanan trip di Kabupaten Banyumas, Jawa Tengah.</p><p class="text-sm font-semibold text-[#A8C3A0]">"Your Way to Plesir, Your Way to Explore."</p></div>
+<div><h4 class="font-bold mb-4 text-[#A8C3A0]">Layanan</h4><ul class="space-y-2 text-gray-300 text-sm"><li><button onclick="go('explore')">Jelajahi</button></li><li><button onclick="go('ai-planner')">AI Planner</button></li><li><button onclick="go('open-trip')">Open Trip</button></li><li><button onclick="go('private-trip')">Private Trip</button></li></ul></div>
+<div><h4 class="font-bold mb-4 text-[#A8C3A0]">Kontak</h4><ul class="space-y-2 text-gray-300 text-sm"><li><a href="https://wa.me/6289681856808" target="_blank" rel="noopener">+62 896-8185-6808</a></li><li>Purwokerto, Banyumas</li></ul></div>
+</div><div class="text-center text-gray-500 text-xs mt-10 pt-6 border-t border-gray-700">&copy; 2026 People Plesir Banyumas.</div></footer>
+
+<script>
+const U=(id)=>`https://images.unsplash.com/${id}?auto=format&fit=crop&w=800&q=80`;
+const DEST=[
+{id:1,name:'Lokawisata Baturraden',cat:'Alam',img:U('photo-1464822759023-fed622ff2c3b'),desc:'Resor pegunungan di lereng Gunung Slamet dengan alam sejuk, air terjun, dan taman botani.',price:25000,hours:'07:00 - 16:00 WIB',lat:-7.3155,lng:109.2312},
+{id:2,name:'Curug Jenggala',cat:'Air Terjun',img:U('photo-1432405972618-c600f4871656'),desc:'Air terjun kembar cantik dengan deck kayu berbentuk hati, favorit swafoto alam.',price:15000,hours:'07:30 - 16:30 WIB',lat:-7.3023,lng:109.2325},
+{id:3,name:'Hutan Pinus Limpakuwus',cat:'Alam',img:U('photo-1448375240586-882707db888b'),desc:'Hutan pinus rindang dengan udara segar, jembatan gantung, dan area bersantai.',price:20000,hours:'08:00 - 16:00 WIB',lat:-7.3015,lng:109.2482},
+{id:4,name:'Telaga Sunyi',cat:'Alam',img:U('photo-1501785888041-af3ef285b470'),desc:'Mata air pegunungan jernih di tengah hutan damar yang tenang.',price:15000,hours:'07:00 - 17:00 WIB',lat:-7.3056,lng:109.2541},
+{id:5,name:'Sentra Mendoan & Getuk Sokaraja',cat:'Kuliner',img:U('photo-1555939594-58d7cb561ad1'),desc:'Tempe mendoan hangat dengan sambal kecap dan getuk goreng manis.',price:20000,hours:'08:00 - 21:00 WIB',lat:-7.4243,lng:109.2301},
+{id:6,name:'Museum Pangsar Soedirman',cat:'Budaya',img:U('photo-1565551325150-137b12d5d8fb'),desc:'Museum bersejarah di Karanglewas untuk mengenang Jenderal Soedirman.',price:5000,hours:'08:00 - 15:30 WIB',lat:-7.4178,lng:109.2084},
+{id:7,name:'Sroto Sutri & Kuliner Purwokerto',cat:'Kuliner',img:U('photo-1504674900247-0877df9cc836'),desc:'Sroto khas Sokaraja dengan kuah kaldu gurih, ketupat, dan sambal kacang.',price:25000,hours:'07:00 - 20:00 WIB',lat:-7.4561,lng:109.2932},
+{id:8,name:'Menara Pandang Teratai',cat:'Budaya',img:U('photo-1513635269975-59663e0ac1ad'),desc:'Ikon Purwokerto setinggi 117 meter dengan pemandangan 360° Gunung Slamet.',price:20000,hours:'09:00 - 22:00 WIB',lat:-7.4281,lng:109.2335}];
+const rp=n=>'Rp '+Number(n).toLocaleString('id-ID');
+const DEF_TRIPS=[
+{id:1,title:'Baturraden & Limpakuwus All-In',date:'15 Nov 2026',price:239000,capacity:18,booked:16,rating:4.9,img:DEST[0].img,desc:'Eksplorasi lereng Gunung Slamet, Baturraden, dan Hutan Pinus Limpakuwus dalam 1 hari penuh.',
+schedule:[['07:00 - 08:00','Kumpul & Briefing','Penjemputan di Stasiun Purwokerto & snack box.'],['08:00 - 11:30','Resor Wisata Baturraden','Lanskap pegunungan, air terjun, taman bunga.'],['11:30 - 13:00','Makan Siang Khas Banyumas','Hidangan tradisional dengan mendoan hangat.'],['13:00 - 16:00','Hutan Pinus Limpakuwus','Jalan santai, spot foto hammock, wahana hutan.'],['16:00 - 17:30','Oleh-Oleh & Pulang','Mampir sentra getuk goreng sebelum kembali.']],
+reviews:[{user:'Rina Sastrawan',rating:5,date:'28 Okt 2026',comment:'Seru banget! Guide ramah, mendoan hangat pas makan siang juara!'},{user:'Dimas Anggara',rating:5,date:'15 Okt 2026',comment:'Cocok buat trip singkat tanpa pusing sewa kendaraan.'}]},
+{id:2,title:'Curug Hopping & Pinus Adventure',date:'22 Nov 2026',price:239000,capacity:18,booked:14,rating:4.8,img:DEST[1].img,desc:'Jelajah air terjun Curug Jenggala dan keheningan Telaga Sunyi di kaki gunung.',
+schedule:[['07:30 - 08:30','Penjemputan','Titik kumpul Alun-Alun Purwokerto.'],['08:30 - 12:00','Trekking Curug Jenggala','Deck swafoto hati dan air terjun kembar.'],['12:00 - 13:30','Makan Siang','Prasmanan masakan desa Banyumas.'],['13:30 - 16:00','Telaga Sunyi','Udara hutan dan air super jernih.'],['16:00 - 17:30','Perjalanan Kembali','Drop off di Alun-Alun Purwokerto.']],
+reviews:[{user:'Bayu Nugroho',rating:5,date:'20 Okt 2026',comment:'Spot fotonya bagus banget, guide membantu ambil foto!'}]},
+{id:3,title:'Banyumas Cultural & Culinary Trip',date:'29 Nov 2026',price:239000,capacity:18,booked:18,rating:5.0,img:DEST[4].img,desc:'Jelajah sejarah, seni lokal, dan sentra kuliner mendoan khas Banyumas.',
+schedule:[['08:00 - 09:00','Kota Lama Banyumas','Registrasi & tur bangunan bersejarah.'],['09:00 - 12:00','Budaya & Museum','Museum Pangsar Soedirman & batik Banyumasan.'],['12:00 - 14:00','Pesta Mendoan & Sroto','Sroto Sokaraja & workshop mendoan.'],['14:00 - 16:30','Sentra Getuk Goreng','Belajar membuat getuk & belanja oleh-oleh.'],['16:30 - 17:00','Penutupan','Foto bersama & kembali ke Stasiun.']],
+reviews:[{user:'Siti Rahma',rating:5,date:'05 Nov 2026',comment:'Wisata kuliner paling otentik! Kenyang dan puas!'}]}];
+const K={u:'pp_user_v1',t:'pp_trips_v1',i:'pp_itin_v1',b:'pp_book_v1'};
+const ld=(k,d)=>{try{return JSON.parse(localStorage.getItem(k))||d}catch(e){return d}};
+const S={view:'home',user:ld(K.u,null),trips:ld(K.t,DEF_TRIPS),itins:ld(K.i,[]),books:ld(K.b,[]),q:'',cat:'Semua',mode:'grid',map:null,step:1,loading:false,res:null,auth:'login',dash:'user',
+f:{days:2,pax:2,per:3,budget:500000,veh:'Motor Pribadi',pref:{alam:true,kuliner:true,budaya:false,santai:false}},
+msgs:[{r:'bot',t:'Halo! Saya PlesirBot. Ada yang bisa saya bantu tentang wisata, rute, atau kuliner di Banyumas?'}]};
+const save=()=>{try{localStorage.setItem(K.u,JSON.stringify(S.user));localStorage.setItem(K.t,JSON.stringify(S.trips));localStorage.setItem(K.i,JSON.stringify(S.itins));localStorage.setItem(K.b,JSON.stringify(S.books))}catch(e){}};
+function toast(m,err){const c=document.getElementById('toast');document.getElementById('toast-box').className='px-6 py-3 rounded-full shadow-xl font-semibold text-sm text-white '+(err?'bg-red-600':'bg-[#245C45]');document.getElementById('toast-box').textContent=m;c.classList.remove('opacity-0','-translate-y-4');setTimeout(()=>c.classList.add('opacity-0','-translate-y-4'),3200)}
+const gmap=q=>window.open('https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q+' Banyumas'),'_blank','noopener');
+const gdir=n=>window.open('https://www.google.com/maps/dir/?api=1&origin=Purwokerto&destination='+encodeURIComponent(n+' Banyumas'),'_blank','noopener');
+function dist(a,b,c,d){const R=6371,r=Math.PI/180,x=(c-a)*r,y=(d-b)*r,h=Math.sin(x/2)**2+Math.cos(a*r)*Math.cos(c*r)*Math.sin(y/2)**2;return Math.max(1.2,R*2*Math.atan2(Math.sqrt(h),Math.sqrt(1-h))*1.35).toFixed(1)+' km'}
+function go(v){if(S.map){S.map.remove();S.map=null}S.view=v;window.scrollTo({top:0,behavior:'smooth'});render()}
+const btn='px-6 py-3 rounded-full bg-[#245C45] text-white hover:bg-[#1a4232] font-semibold text-sm shadow-md transition-all';
+const outl='px-6 py-3 rounded-full border-2 border-[#245C45] text-[#245C45] hover:bg-[#245C45] hover:text-white font-semibold text-sm transition-all';
+const inp='w-full p-3.5 bg-[#FAF8F1] border border-gray-200 rounded-2xl outline-none focus:border-[#245C45] text-sm';
+const card='bg-white rounded-3xl border border-gray-100 shadow-sm';
+const head=(s,t,p)=>`<div class="text-center mb-10"><span class="text-[#E99555] font-bold text-xs uppercase tracking-widest">${s}</span><h1 class="text-3xl md:text-4xl font-bold text-[#245C45] my-2">${t}</h1>${p?`<p class="text-gray-600 max-w-2xl mx-auto">${p}</p>`:''}</div>`;
+
+function nav(){
+ const items=[['home','Beranda'],['explore','Jelajahi'],['ai-planner','AI Planner'],['open-trip','Open Trip'],['private-trip','Private Trip']];
+ dnav.innerHTML=items.map(([v,l])=>`<button onclick="go('${v}')" class="font-semibold ${S.view===v?'text-[#E99555]':'hover:text-[#245C45]'}">${l}</button>`).join('');
+ dauth.innerHTML=S.user?`<button onclick="go('dashboard')" class="flex items-center space-x-2 bg-white px-4 py-2 rounded-full border border-[#A8C3A0]"><i data-lucide="user" class="w-4 h-4 text-[#245C45]"></i><span class="text-sm font-bold">${S.user.name}</span></button>`:`<button onclick="go('login')" class="border-2 border-[#245C45] text-[#245C45] hover:bg-[#245C45] hover:text-white font-semibold py-2 px-6 rounded-full text-sm">Login / Daftar</button>`;
+ const m=[['home','palmtree','Beranda'],['explore','map','Jelajahi'],['ai-planner','sparkles','AI Planner'],['open-trip','calendar','Open Trip'],[S.user?'dashboard':'login','user',S.user?'Akun':'Login']];
+ mnav.innerHTML=m.map(([v,i,l])=>`<button onclick="go('${v}')" class="flex flex-col items-center w-full space-y-1 ${S.view===v?'text-[#245C45]':'text-gray-400'}"><i data-lucide="${i}" class="w-5 h-5"></i><span class="text-[10px] font-bold">${l}</span></button>`).join('');
+}
+
+function home(){
+ const t=S.trips[0],rem=t.capacity-t.booked;
+ return `<div class="fade space-y-16 pb-12">
+ <div class="relative bg-[#245C45] text-white rounded-b-[2.5rem] overflow-hidden min-h-[520px] flex items-center">
+  <img src="${DEST[0].img}" alt="Baturraden" onerror="this.style.display='none'" class="absolute inset-0 w-full h-full object-cover opacity-35">
+  <div class="absolute inset-0 bg-gradient-to-t from-[#245C45] via-[#245C45]/60 to-transparent"></div>
+  <div class="relative z-10 max-w-7xl mx-auto px-6 py-16 space-y-6 text-center md:text-left">
+   <span class="inline-flex px-4 py-1.5 rounded-full text-xs font-bold bg-[#A8C3A0]/30 border border-[#A8C3A0]/40">✨ Platform Perjalanan Digital Banyumas</span>
+   <h1 class="text-4xl md:text-6xl font-extrabold leading-tight max-w-3xl">Your Next Story Starts in <span class="text-[#E99555]">Banyumas.</span></h1>
+   <p class="text-lg max-w-2xl opacity-95">Temukan tempat baru, susun perjalanan sesuai caramu, dan jelajahi alam serta kuliner Banyumas bersama People Plesir.</p>
+   <div class="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
+    <button onclick="go('ai-planner')" class="px-8 py-4 rounded-full font-semibold bg-[#E99555] hover:bg-[#d17a3a] shadow-lg">Susun Itinerary dengan AI</button>
+    <button onclick="go('open-trip')" class="px-8 py-4 rounded-full font-semibold border-2 border-white hover:bg-white hover:text-[#245C45]">Open Trip (Rp 239rb)</button></div></div></div>
+ <div class="max-w-7xl mx-auto px-6"><div class="text-center mb-10"><h2 class="text-3xl font-bold text-[#245C45]">Cara Kerja People Plesir</h2></div>
+  <div class="grid md:grid-cols-3 gap-6">${[['compass','Atur Preferensi','Tentukan hari, rombongan, kendaraan, budget, dan tipe wisata.'],['sparkles','AI Menyusun Rute','Jadwal logis lengkap dengan jarak (km) & rincian biaya.'],['palmtree','Nikmati Plesir','Pesan Open Trip all-in atau ajukan Private Trip custom.']].map(([i,a,b],n)=>`<div class="${card} p-8 relative"><span class="absolute top-4 right-6 text-5xl font-black text-[#A8C3A0]/20">0${n+1}</span><i data-lucide="${i}" class="w-8 h-8 text-[#245C45] mb-4"></i><h3 class="text-xl font-bold mb-2">${a}</h3><p class="text-gray-600 text-sm">${b}</p></div>`).join('')}</div></div>
+ <div class="max-w-7xl mx-auto px-6"><div class="flex justify-between items-end mb-8"><h2 class="text-3xl font-bold text-[#245C45]">Jelajahi Banyumas</h2><button onclick="go('explore')" class="${outl}">Lihat Semua</button></div>
+  <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">${DEST.slice(0,3).map(d=>`<div class="${card} overflow-hidden hover:shadow-lg transition"><div class="relative h-52 bg-[#245C45]/10"><img src="${d.img}" alt="${d.name}" class="w-full h-full object-cover"><span class="absolute top-4 left-4 bg-white/90 px-3 py-1 rounded-full text-xs font-bold text-[#245C45]">${d.cat}</span></div><div class="p-6"><div class="flex justify-between mb-2"><h3 class="text-xl font-bold">${d.name}</h3><span class="text-sm font-extrabold text-[#245C45]">${rp(d.price)}</span></div><p class="text-gray-600 text-sm mb-4">${d.desc}</p><button onclick="go('ai-planner')" class="w-full py-2.5 rounded-full text-sm font-semibold text-[#245C45] hover:bg-[#A8C3A0]/20">Tambahkan ke Itinerary →</button></div></div>`).join('')}</div></div>
+ <div class="max-w-7xl mx-auto px-6"><div class="bg-[#245C45] rounded-[3rem] p-8 md:p-12 text-white grid lg:grid-cols-3 gap-8 items-center">
+  <div class="lg:col-span-2 space-y-3"><span class="bg-[#E99555] text-xs font-bold px-3 py-1 rounded-full uppercase">Open Trip Bulan Ini</span><h2 class="text-3xl md:text-4xl font-extrabold">${t.title}</h2><p class="text-gray-200">Petualangan 1 hari tanpa pusing transportasi dan tiket. All-In ${rp(t.price)} / pax.</p><p class="text-sm">📅 ${t.date} &nbsp; 👥 ${t.booked}/${t.capacity} seat terisi</p></div>
+  <div class="bg-white/10 p-6 rounded-3xl text-center"><div class="text-4xl font-extrabold">${rp(t.price)}</div><div class="text-xs text-[#E99555] font-bold my-4">${rem>0?`🔥 SISA ${rem} SEAT! BOOKING NOW`:'❌ SEAT HABIS! FULL BOOKED'}</div><button onclick="go('open-trip')" class="w-full py-3.5 rounded-full font-semibold bg-[#E99555] hover:bg-[#d17a3a]">Daftar Open Trip</button></div></div></div></div>`}
+
+const filt=()=>DEST.filter(d=>(d.name+d.desc).toLowerCase().includes(S.q.toLowerCase())&&(S.cat==='Semua'||d.cat===S.cat));
+function explore(){
+ const l=filt();
+ return `<div class="py-12 px-6 max-w-7xl mx-auto fade space-y-8">${head('Katalog & Peta','Jelajahi Wisata & Kuliner Banyumas','Destinasi alam, air terjun, hingga kuliner otentik Banyumas.')}
+ <div class="${card} p-6 space-y-4"><div class="flex flex-col sm:flex-row gap-4"><input value="${S.q}" oninput="S.q=this.value;exSearch()" placeholder="Cari destinasi atau makanan..." class="flex-1 p-4 bg-[#FAF8F1] rounded-2xl outline-none text-sm"><div class="bg-[#FAF8F1] p-1.5 rounded-2xl flex border">${[['grid','Grid Kartu'],['map','Peta Lokasi']].map(([m,t])=>`<button onclick="S.mode='${m}';render()" class="px-4 py-2 rounded-xl text-xs font-bold ${S.mode===m?'bg-[#245C45] text-white':'text-gray-600'}">${t}</button>`).join('')}</div></div>
+ <div class="flex flex-wrap gap-2">${['Semua','Alam','Air Terjun','Kuliner','Budaya'].map(c=>`<button onclick="S.cat='${c}';render()" class="px-4 py-2 rounded-full text-xs font-bold ${S.cat===c?'bg-[#245C45] text-white':'bg-[#FAF8F1] text-gray-600'}">${c}</button>`).join('')}</div></div>
+ <div id="exres">${exBody(l)}</div></div>`}
+function exBody(l){
+ if(S.mode==='map')return `<p class="text-xs text-gray-600 mb-3">📍 ${l.length} lokasi di Banyumas</p><div class="h-[500px] rounded-3xl overflow-hidden border relative z-0"><div id="lmap" class="w-full h-full"></div></div>`;
+ if(!l.length)return `<div class="text-center py-16 bg-white rounded-3xl border border-dashed text-gray-500 text-sm">Destinasi tidak ditemukan.</div>`;
+ return `<div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">${l.map(d=>`<div class="${card} overflow-hidden flex flex-col"><div class="relative h-52 bg-[#245C45]/10"><img src="${d.img}" alt="${d.name}" class="w-full h-full object-cover"><span class="absolute top-4 left-4 bg-white/90 px-3 py-1 rounded-full text-xs font-bold text-[#245C45]">${d.cat}</span></div><div class="p-6 flex flex-col flex-grow"><div class="flex justify-between mb-1"><h3 class="text-xl font-bold">${d.name}</h3><span class="text-sm font-extrabold text-[#245C45] ml-2">${rp(d.price)}</span></div><div class="text-xs text-gray-400 mb-3">🕒 ${d.hours}</div><p class="text-gray-600 text-sm mb-5 flex-grow">${d.desc}</p><div class="flex gap-2"><button onclick="gdir('${d.name}')" class="flex-1 py-2.5 rounded-full border-2 border-[#245C45] text-[#245C45] hover:bg-[#245C45] hover:text-white font-semibold text-xs">📍 Rute G-Maps</button><button onclick="go('ai-planner')" class="flex-1 py-2.5 rounded-full bg-[#245C45] text-white font-semibold text-xs">Atur via AI</button></div></div></div>`).join('')}</div>`}
+function exSearch(){document.getElementById('exres').innerHTML=exBody(filt());initMap()}
+function initMap(){
+ const el=document.getElementById('lmap');if(!el||typeof L==='undefined')return;
+ if(S.map){S.map.remove();S.map=null}
+ const m=L.map(el).setView([-7.3455,109.2312],11);S.map=m;
+ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap'}).addTo(m);
+ filt().forEach(d=>L.marker([d.lat,d.lng]).addTo(m).bindPopup(`<b style="color:#245C45">${d.name}</b><br><small>${d.cat} • ${rp(d.price)}</small><br><button onclick="gdir('${d.name}')" style="margin-top:6px;background:#245C45;color:#fff;border:0;padding:5px 12px;border-radius:99px;font-size:11px;cursor:pointer">📍 Rute Google Maps</button>`));
+}
+
+const minB=()=>S.f.days*(75000+S.f.per*20000);
+function counter(l,k,mn,mx,u){return `<div><label class="block text-sm font-semibold mb-3">${l}</label><div class="flex items-center bg-[#FAF8F1] rounded-2xl p-2"><button onclick="cnt('${k}',-1,${mn},${mx})" class="w-10 h-10 bg-white rounded-xl shadow-sm font-bold text-[#245C45]">-</button><span class="flex-1 text-center font-bold">${S.f[k]} ${u}</span><button onclick="cnt('${k}',1,${mn},${mx})" class="w-10 h-10 bg-white rounded-xl shadow-sm font-bold text-[#245C45]">+</button></div></div>`}
+function planner(){
+ const f=S.f,mb=minB(),mx=Math.max(mb*4,3000000);if(f.budget<mb)f.budget=mb;
+ let body='';
+ if(S.step===1)body=`<div class="space-y-8 fade"><h2 class="text-2xl font-bold">Info Dasar Perjalanan</h2>
+ <div class="grid md:grid-cols-3 gap-6">${counter('Lama Hari','days',1,7,'Hari')}${counter('Jumlah Peserta','pax',1,20,'Orang')}${counter('Destinasi Per Hari','per',1,6,'Tempat')}</div>
+ <div><div class="flex flex-col sm:flex-row justify-between mb-3 gap-2"><div><label class="text-sm font-semibold">Anggaran Per Orang</label><div class="text-xs text-[#E99555] font-semibold">💡 Batas minimal menyesuaikan (${f.days} Hari & ${f.per} Destinasi/Hari)</div></div><span class="text-[#245C45] font-bold bg-[#A8C3A0]/20 px-4 py-1.5 rounded-full">${rp(f.budget)} / orang</span></div>
+ <div class="bg-[#FAF8F1] p-6 rounded-3xl"><input type="range" min="${mb}" max="${mx}" step="50000" value="${f.budget}" oninput="f_budget(this.value)" class="w-full accent-[#245C45]"><div class="flex justify-between text-xs text-gray-500 mt-3"><span>Min: ${rp(mb)}</span><span>Max: ${rp(mx)}</span></div><div class="mt-4 pt-3 border-t flex justify-between text-sm text-gray-600"><span>Total rombongan (${f.pax} orang):</span><strong id="gtot" class="text-[#245C45]">${rp(f.budget*f.pax)}</strong></div></div></div>
+ <div><label class="block text-sm font-semibold mb-3">Kendaraan Selama di Banyumas</label><div class="grid sm:grid-cols-3 gap-3">${['Motor Pribadi','Mobil Pribadi','Sewa / Rental Kendaraan'].map(v=>`<button onclick="S.f.veh='${v}';render()" class="p-4 rounded-2xl border-2 font-semibold text-sm ${f.veh===v?'border-[#245C45] bg-[#A8C3A0]/20 text-[#245C45]':'border-gray-100 bg-[#FAF8F1] text-gray-500'}">${v}</button>`).join('')}</div></div>
+ <div class="flex justify-end"><button onclick="S.step=2;render()" class="${btn}">Selanjutnya →</button></div></div>`;
+ if(S.step===2)body=`<div class="space-y-8 fade"><div><h2 class="text-2xl font-bold">Apa yang ingin kamu nikmati?</h2><p class="text-gray-500 text-sm mt-1">Pilih kategori favorit agar AI menyusun urutan terbaik.</p></div>
+ <div class="grid grid-cols-2 md:grid-cols-4 gap-4">${[['alam','🌲 Alam & Outdoor'],['kuliner','☕ Kuliner Lokal'],['budaya','🏛️ Budaya & Sejarah'],['santai','🌴 Santai & Kafe']].map(([k,l])=>`<button onclick="S.f.pref.${k}=!S.f.pref.${k};render()" class="p-6 rounded-3xl border-2 font-semibold text-sm ${f.pref[k]?'border-[#245C45] bg-[#A8C3A0]/20 text-[#245C45]':'border-gray-100 bg-[#FAF8F1] text-gray-400'}">${l}</button>`).join('')}</div>
+ <div class="flex justify-between"><button onclick="S.step=1;render()" class="px-6 py-3 rounded-full text-[#245C45] font-semibold">Kembali</button><button onclick="gen()" class="${btn}">Generate Itinerary AI ✨</button></div></div>`;
+ if(S.step===3&&S.loading)body=`<div class="text-center py-20 animate-pulse"><i data-lucide="sparkles" class="w-16 h-16 text-[#E99555] mx-auto mb-6 spin"></i><h2 class="text-2xl font-bold text-[#245C45] mb-2">AI sedang menyusun rute terbaik...</h2><p class="text-gray-500 text-sm">Memetakan jarak, jam operasional, dan estimasi biaya.</p></div>`;
+ if(S.step===3&&!S.loading&&S.res){const r=S.res;body=`<div class="fade"><div class="text-center mb-10 bg-[#A8C3A0]/15 p-6 rounded-3xl border border-[#A8C3A0]/30"><span class="text-[#E99555] font-bold text-xs uppercase">Rencana Perjalanan Siap!</span><h2 class="text-2xl md:text-3xl font-extrabold my-2">${r.title}</h2><p class="text-gray-600 text-sm max-w-xl mx-auto mb-4">${r.summary}</p><div class="flex flex-wrap justify-center gap-3"><span class="bg-white px-4 py-2 rounded-full shadow-sm text-sm font-bold text-[#245C45]">💰 Estimasi: ${r.total}</span><span class="bg-white px-4 py-2 rounded-full shadow-sm text-sm font-bold text-[#245C45]">🚗 ${r.params.veh} • ${r.params.pax} Peserta</span></div></div>
+ <div class="space-y-10">${r.days.map(d=>`<div><h3 class="text-xl font-bold text-[#245C45] mb-5"><span class="bg-[#E99555] text-white rounded-full px-3 py-1 text-sm mr-2">H${d.n}</span>Jadwal Hari ${d.n}</h3><div class="space-y-4 md:ml-10">${d.acts.map(a=>`<div class="${card} p-5 flex flex-col md:flex-row justify-between gap-4"><div><div class="flex flex-wrap gap-2 text-xs font-bold mb-1.5"><span class="text-[#E99555]">🕒 ${a.time}</span><span class="text-[#245C45] bg-[#A8C3A0]/20 px-2.5 py-0.5 rounded-full">🧭 ${a.dist}</span></div><h4 class="text-lg font-bold">${a.title}</h4><p class="text-gray-600 text-sm">${a.desc}</p></div><div class="bg-[#FAF8F1] px-4 py-2 rounded-xl text-sm font-bold text-[#245C45] self-start md:self-center whitespace-nowrap">${a.cost}</div></div>`).join('')}</div></div>`).join('')}</div>
+ <p class="text-xs text-gray-400 text-center mt-8">*Estimasi waktu dan biaya dapat berubah sesuai kondisi cuaca dan operasional.</p>
+ <div class="mt-8 pt-6 border-t flex flex-col sm:flex-row justify-center gap-3"><button onclick="gmap('${r.title.replace(/'/g,'')}')" class="px-6 py-3 rounded-full bg-[#E99555] text-white font-semibold text-sm">Buka Rute di Google Maps</button><button onclick="S.step=1;S.res=null;render()" class="${outl}">Buat Ulang</button><button onclick="saveItin()" class="${btn}">${S.user?'Simpan ke Dashboard':'Login untuk Simpan'}</button></div></div>`}
+ return `<div class="py-12 px-6 max-w-4xl mx-auto fade">${head('AI Planner','AI Itinerary Planner','Biar AI mengatur rute & estimasi biaya, kamu tinggal packing.')}<div class="bg-white rounded-[2.5rem] shadow-xl p-6 sm:p-10 border border-[#A8C3A0]/20">${body}</div></div>`}
+function cnt(k,d,mn,mx){S.f[k]=Math.min(mx,Math.max(mn,S.f[k]+d));if(S.f.budget<minB())S.f.budget=minB();render()}
+function f_budget(v){S.f.budget=+v;document.getElementById('gtot').textContent=rp(S.f.budget*S.f.pax);document.querySelector('.bg-\\[\\#A8C3A0\\]\\/20.px-4').textContent=rp(S.f.budget)+' / orang'}
+function gen(){
+ S.step=3;S.loading=true;render();
+ setTimeout(()=>{
+  const f=S.f,P=Object.keys(f.pref).filter(k=>f.pref[k]);
+  const m=(d,p)=>(p==='alam'&&['Alam','Air Terjun'].includes(d.cat))||(p==='kuliner'&&d.cat==='Kuliner')||(p==='budaya'&&d.cat==='Budaya')||(p==='santai'&&['Alam','Kuliner'].includes(d.cat));
+  const pool=[...DEST].sort((a,b)=>(P.some(p=>m(b,p))?1:0)-(P.some(p=>m(a,p))?1:0));
+  const slots=['08:00 - 10:30','11:00 - 13:00','13:30 - 15:30','16:00 - 18:00','18:30 - 20:30','20:30 - 21:30'];
+  let tot=0;const days=[];
+  for(let d=1;d<=f.days;d++){const acts=[];let prev=null;
+   for(let i=0;i<f.per;i++){const s=pool[((d-1)*f.per+i)%pool.length];const c=s.price*f.pax;tot+=c;
+    acts.push({time:slots[i%slots.length],title:s.name,desc:`${s.desc} (Akses nyaman dengan ${f.veh}).`,cost:`${rp(c)} (${f.pax} pax)`,dist:i===0?'Titik Awal (Purwokerto)':dist(prev.lat,prev.lng,s.lat,s.lng)});prev=s}
+   tot+=55000*f.pax+(f.veh==='Sewa / Rental Kendaraan'?250000:45000);days.push({n:d,acts})}
+  S.res={id:Date.now(),title:`Eksplorasi Banyumas ${f.days} Hari (${f.veh})`,summary:`Rute terkurasi untuk ${f.pax} peserta dengan ${f.per} destinasi/hari, berurutan secara geografis agar efisien.`,total:rp(Math.min(tot,f.budget*f.pax)),days,params:{...f}};
+  S.loading=false;render()},900)}
+function saveItin(){if(!S.user){toast('Silakan login dulu untuk menyimpan itinerary.',1);return go('login')}S.itins.unshift(S.res);save();toast('Itinerary tersimpan di Dashboard!');go('dashboard')}
+
+function openTrip(){
+ return `<div class="py-12 px-6 max-w-7xl mx-auto fade">${head('Paket Perjalanan Pilihan','Jadwal Open Trip','Perjalanan All-In 1 hari <b>Rp 239.000 / orang</b>: transportasi, tiket destinasi, dan makan siang khas Banyumas.')}
+ <div class="grid lg:grid-cols-3 gap-8">${S.trips.map(t=>{const rem=t.capacity-t.booked,full=rem<=0,pct=Math.round(t.booked/t.capacity*100);
+ return `<div class="${card} overflow-hidden flex flex-col relative">${full?'<div class="absolute top-4 left-4 z-10 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full">FULL BOOKED</div>':''}
+ <div class="relative h-52 bg-[#245C45]/10"><img src="${t.img}" alt="${t.title}" class="w-full h-full object-cover"><div class="absolute top-4 right-4 bg-white/95 px-3 py-1 rounded-full text-xs font-extrabold text-[#245C45]">⭐ ${t.rating} <span class="text-gray-400 font-normal">(${t.reviews.length})</span></div></div>
+ <div class="p-6 flex flex-col flex-grow"><h3 class="text-xl font-bold mb-2">${t.title}</h3><p class="text-gray-600 text-sm mb-4 flex-grow">${t.desc}</p>
+ <button onclick="tripModal(${t.id},'rundown')" class="mb-4 text-xs font-bold text-[#245C45] flex justify-between bg-[#FAF8F1] p-3 rounded-xl border border-[#A8C3A0]/30"><span>📋 Lihat Activities & Rundown (${t.schedule.length})</span><span>›</span></button>
+ <div class="space-y-3 mb-5 bg-[#FAF8F1] p-4 rounded-2xl text-sm"><div>📅 <b>${t.date}</b></div><div class="flex items-center"><div class="w-full bg-gray-200 rounded-full h-2.5 mr-2"><div class="bg-[#E99555] h-2.5 rounded-full" style="width:${pct}%"></div></div><span class="text-xs font-bold text-[#245C45] whitespace-nowrap">${t.booked}/${t.capacity} seat</span></div><div class="pt-2 border-t text-center text-xs font-extrabold uppercase ${full?'text-red-500':'text-[#E99555]'}">${full?'❌ SEAT HABIS! FULL BOOKED':`🔥 SISA ${rem} SEAT! BOOKING NOW`}</div></div>
+ <div class="flex justify-between items-center mb-4"><span class="text-xs text-gray-500">Harga All-In / Pax</span><span class="text-2xl font-bold text-[#245C45]">${rp(t.price)}</span></div>
+ <div class="grid grid-cols-2 gap-2"><button onclick="tripModal(${t.id},'reviews')" class="py-3 rounded-full border-2 border-[#245C45] text-[#245C45] font-semibold text-xs">⭐ Ulasan (${t.reviews.length})</button><button onclick="bookModal(${t.id})" ${full?'disabled':''} class="py-3 rounded-full font-semibold text-xs ${full?'bg-gray-200 text-gray-400':'bg-[#245C45] text-white'}">${full?'Habis':'Daftar Sekarang'}</button></div></div></div>`}).join('')}</div></div>`}
+const closeModal=()=>modal.innerHTML='';
+const shell=(sub,title,extra,body)=>`<div class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto fade"><div class="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden my-8"><div class="bg-[#245C45] p-6 text-white flex justify-between items-start"><div><span class="text-xs font-bold text-[#A8C3A0] uppercase">${sub}</span><h3 class="text-xl font-bold">${title}</h3><p class="text-xs text-gray-200 mt-1">${extra}</p></div><button onclick="closeModal()" class="bg-white/10 p-2 rounded-full">✕</button></div>${body}</div></div>`;
+function tripModal(id,tab){
+ const t=S.trips.find(x=>x.id===id),full=t.capacity-t.booked<=0;
+ const tabs=`<div class="flex border-b bg-[#FAF8F1]">${[['rundown',`🕒 Jadwal (${t.schedule.length})`],['reviews',`⭐ Ulasan (${t.reviews.length})`]].map(([k,l])=>`<button onclick="tripModal(${id},'${k}')" class="flex-1 py-3 text-sm font-bold border-b-2 ${tab===k?'border-[#245C45] text-[#245C45] bg-white':'border-transparent text-gray-500'}">${l}</button>`).join('')}</div>`;
+ const c=tab==='rundown'?`<div class="space-y-3">${t.schedule.map(([tm,a,d])=>`<div class="p-4 rounded-2xl border shadow-sm flex flex-col sm:flex-row gap-3"><div class="bg-[#245C45] text-white px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap self-start">${tm}</div><div><h4 class="font-bold text-sm">${a}</h4><p class="text-gray-600 text-xs mt-1">${d}</p></div></div>`).join('')}</div>`
+ :`<div class="space-y-3">${t.reviews.map(r=>`<div class="bg-[#FAF8F1] p-4 rounded-2xl border"><div class="flex justify-between mb-1.5"><b class="text-sm text-[#245C45]">${r.user}</b><span class="text-xs text-[#E99555] font-bold">${'⭐'.repeat(r.rating)} <span class="text-gray-400 font-normal">${r.date}</span></span></div><p class="text-xs text-gray-600">${r.comment}</p></div>`).join('')}</div>
+ <div class="border-t pt-5 mt-6"><h4 class="font-bold text-sm mb-3">Tulis Ulasan & Rating Anda</h4>${!S.user?`<div class="bg-amber-50 text-amber-800 p-4 rounded-2xl text-xs flex justify-between items-center"><span>Login dulu untuk memberi penilaian.</span><button onclick="closeModal();go('login')" class="border border-amber-800 px-3 py-1.5 rounded-full font-bold">Login</button></div>`:`<form onsubmit="review(event,${id})" class="space-y-3"><select id="rv-r" class="${inp}"><option value="5">⭐⭐⭐⭐⭐ (5)</option><option value="4">⭐⭐⭐⭐ (4)</option><option value="3">⭐⭐⭐ (3)</option><option value="2">⭐⭐ (2)</option><option value="1">⭐ (1)</option></select><textarea id="rv-c" rows="3" required placeholder="Bagikan pengalamanmu..." class="${inp} resize-none"></textarea><button class="w-full py-2.5 rounded-full bg-[#245C45] text-white font-semibold text-xs">Kirim Ulasan</button></form>`}</div>`;
+ modal.innerHTML=shell('Detail Open Trip',t.title,`📅 ${t.date} • ⭐ ${t.rating} (${t.reviews.length} ulasan)`,`${tabs}<div class="p-6 max-h-[60vh] overflow-y-auto">${c}</div><div class="p-4 bg-gray-50 border-t flex justify-between items-center"><button onclick="closeModal()" class="px-5 py-2 text-xs font-semibold text-gray-600">Tutup</button><button onclick="bookModal(${id})" ${full?'disabled':''} class="px-6 py-2.5 rounded-full text-xs font-semibold ${full?'bg-gray-300 text-gray-500':'bg-[#245C45] text-white'}">Pesan Trip Ini (${rp(t.price)})</button></div>`);
+}
+function review(e,id){e.preventDefault();const rating=+rv_r().value,comment=rv_c().value.trim();if(!comment)return;
+ S.trips=S.trips.map(t=>{if(t.id!==id)return t;const rs=[{user:S.user.name,rating,date:'Baru saja',comment},...t.reviews];return{...t,reviews:rs,rating:+(rs.reduce((a,r)=>a+r.rating,0)/rs.length).toFixed(1)}});
+ save();toast('Terima kasih! Ulasan Anda ditambahkan.');render();tripModal(id,'reviews')}
+const rv_r=()=>document.getElementById('rv-r'),rv_c=()=>document.getElementById('rv-c');
+function bookModal(id){
+ const t=S.trips.find(x=>x.id===id),L=(l,h)=>`<label class="block text-xs font-bold uppercase tracking-wider mb-1">${l}</label>${h}`;
+ modal.innerHTML=shell('Formulir Pendaftaran',t.title,`Tanggal: ${t.date} • ${rp(t.price)}/pax`,`<form onsubmit="book(event,${id})" class="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+ <div>${L('Nama Lengkap *',`<input id="bk-n" required value="${S.user?S.user.name:''}" placeholder="Budi Santoso" class="${inp}">`)}</div>
+ <div class="grid grid-cols-2 gap-4"><div>${L('Jenis Kelamin *',`<select id="bk-g" class="${inp}"><option>Pria</option><option>Wanita</option></select>`)}</div><div>${L('Umur *',`<input id="bk-u" type="number" min="1" max="100" required placeholder="21" class="${inp}">`)}</div></div>
+ <div class="grid grid-cols-2 gap-4"><div>${L('Asal Kota *',`<input id="bk-k" required placeholder="Purwokerto" class="${inp}">`)}</div><div>${L('No. WhatsApp *',`<input id="bk-w" type="tel" required placeholder="08123456789" class="${inp}">`)}</div></div>
+ <div>${L('Alergi / Penyakit Bawaan',`<textarea id="bk-a" rows="2" placeholder="Atau isi 'Tidak ada'" class="${inp} resize-none"></textarea>`)}</div>
+ <div class="pt-3 flex gap-3"><button type="button" onclick="closeModal()" class="flex-1 py-3 rounded-full text-gray-600 font-semibold text-sm">Batal</button><button class="flex-1 py-3 rounded-full bg-[#245C45] text-white font-semibold text-sm">Konfirmasi & Chat WA Admin</button></div></form>`);
+}
+function book(e,id){e.preventDefault();const $=i=>document.getElementById(i).value.trim(),nama=$('bk-n'),t=S.trips.find(x=>x.id===id);
+ S.trips=S.trips.map(x=>x.id===id?{...x,booked:Math.min(x.capacity,x.booked+1)}:x);
+ S.books.unshift({id:Date.now(),type:'Open Trip',title:t.title,date:t.date,price:rp(t.price),status:'Menunggu Konfirmasi WA Admin',participant:{nama,gender:$('bk-g'),umur:$('bk-u'),kota:$('bk-k'),wa:$('bk-w'),alergi:$('bk-a')||'Tidak ada'}});
+ save();closeModal();render();
+ window.open('https://wa.me/6289681856808?text='+encodeURIComponent(`Hai Admin Plesir! Aku ${nama}, ingin mengikuti ${t.title}, boleh dibantu untuk registrasi dan pembayaran nya , terimakasih`),'_blank','noopener');
+ toast('Mengarahkan ke WhatsApp Admin...')}
+
+function privateTrip(){
+ const L=(l,h)=>`<div><label class="block text-sm font-semibold mb-2">${l}</label>${h}</div>`,i2='w-full p-4 bg-[#FAF8F1] rounded-2xl outline-none text-sm';
+ return `<div class="py-12 px-6 max-w-4xl mx-auto fade">${head('Layanan Custom Eksklusif','Private Trip Custom','"Your Group. Your Route. Your Plesir."<br>Paket Favorit: <b>Rp 1.950.000 / 4 Pax All-In</b> (~Rp 487.500/orang).')}
+ <div class="grid md:grid-cols-3 gap-6 mb-8">${[['Estimasi / Kelompok','Rp 1.950.000','Paket 4 Orang All-In'],['Fasilitas','Full Service','Transport, Tiket, Makan, P3K'],['Fleksibilitas','100% Custom','Jadwal & Destinasi Bebas']].map(([a,b,c])=>`<div class="${card} p-6 text-center"><div class="text-xs text-gray-500">${a}</div><div class="text-xl font-bold text-[#245C45]">${b}</div><div class="text-xs text-[#E99555] font-semibold mt-1">${c}</div></div>`).join('')}</div>
+ <form onsubmit="ptSubmit(event)" class="bg-white p-8 rounded-[2.5rem] shadow-xl space-y-6"><div class="grid md:grid-cols-2 gap-6">${L('Nama Pemesan',`<input id="pt-n" required value="${S.user?S.user.name:''}" class="${i2}">`)}${L('WhatsApp / Telepon',`<input id="pt-w" type="tel" required placeholder="08xx..." class="${i2}">`)}${L('Tanggal Perjalanan',`<input id="pt-d" type="date" required class="${i2}">`)}${L('Jumlah Peserta (Acuan 4 Pax)',`<input id="pt-p" type="number" min="1" value="4" required class="${i2}">`)}</div>
+ ${L('Destinasi / Tema Wisata',`<textarea id="pt-t" rows="3" required placeholder="Contoh: Baturraden, Limpakuwus, kuliner mendoan." class="${i2} resize-none"></textarea>`)}
+ <div class="grid grid-cols-2 md:grid-cols-3 gap-3 bg-[#FAF8F1] p-4 rounded-2xl text-xs md:text-sm font-medium text-gray-700">${['Armada & Driver','Tiket Destinasi','Konsumsi & Air Mineral','Parkir & Retribusi','Perlengkapan P3K','Tour Companion'].map(x=>`<span>✅ ${x}</span>`).join('')}</div>
+ <button class="w-full py-4 rounded-full bg-[#245C45] text-white font-semibold text-lg shadow-md">Ajukan Penawaran Private Trip</button><p class="text-center text-xs text-gray-500">*Harga final dikonfirmasi tim setelah cek ketersediaan armada & lokasi penjemputan.</p></form></div>`}
+function ptSubmit(e){e.preventDefault();const g=i=>document.getElementById(i).value.trim(),pax=+g('pt-p'),t=g('pt-t');
+ S.books.unshift({id:Date.now(),type:'Private Trip Custom',title:`Private Trip (${pax} Pax): ${t.slice(0,32)}...`,date:g('pt-d'),price:'Estimasi '+rp(Math.round(pax/4*1950000)),status:'Menunggu Penawaran Final Tim'});
+ save();e.target.reset();toast('Permintaan Private Trip diajukan! Tim kami akan menghubungi via WhatsApp.')}
+
+function authView(){const lg=S.auth==='login',i2='w-full p-4 bg-[#FAF8F1] rounded-2xl outline-none text-sm';
+ return `<div class="py-16 px-6 min-h-[75vh] flex items-center justify-center fade"><div class="bg-white p-8 rounded-[2.5rem] shadow-xl w-full max-w-md"><div class="text-center mb-8"><h2 class="text-3xl font-bold text-[#245C45] mb-2">${lg?'Selamat Datang Kembali':'Mulai Petualangan'}</h2><p class="text-gray-500 text-sm">Masuk untuk menyimpan itinerary, memberi ulasan, dan mengelola trip.</p></div>
+ <form onsubmit="authSubmit(event)" class="space-y-4">${lg?'':`<input id="a-n" required placeholder="Nama Lengkap" class="${i2}">`}<input id="a-e" type="email" required placeholder="nama@email.com" class="${i2}"><input id="a-p" type="password" required placeholder="••••••••" class="${i2}"><button class="w-full py-4 rounded-full bg-[#245C45] text-white font-semibold">${lg?'Masuk':'Daftar Sekarang'}</button></form>
+ <div class="mt-6 text-center"><button onclick="S.auth='${lg?'register':'login'}';render()" class="text-[#E99555] text-sm font-semibold">${lg?'Belum punya akun? Daftar':'Sudah punya akun? Masuk'}</button></div></div></div>`}
+function authSubmit(e){e.preventDefault();const em=document.getElementById('a-e').value.trim(),n=document.getElementById('a-n'),nm=n?n.value.trim():em.split('@')[0];
+ S.user={name:nm.charAt(0).toUpperCase()+nm.slice(1),email:em};save();toast(S.auth==='login'?'Login berhasil!':'Registrasi berhasil!');go('dashboard')}
+function logout(){S.user=null;save();toast('Anda telah keluar.');go('home')}
+
+function dashboard(){
+ if(!S.user)return `<div class="py-32 text-center px-6"><h2 class="text-2xl font-bold text-[#245C45] mb-4">Silakan Login Terlebih Dahulu</h2><button onclick="go('login')" class="${btn}">Ke Halaman Login</button></div>`;
+ const u=S.dash==='user',mt=(a,b,c)=>`<div class="${card} p-6"><div class="text-xs font-bold text-[#E99555] uppercase mb-1">${a}</div><div class="text-2xl font-extrabold text-[#245C45]">${b}</div><div class="text-xs text-gray-500 mt-1">${c}</div></div>`;
+ const empty=(t,b,go_,cl)=>`<div class="bg-white p-10 rounded-3xl text-center border border-dashed border-[#A8C3A0]"><p class="text-gray-500 mb-4 text-sm">${t}</p><button onclick="go('${go_}')" class="${cl}">${b}</button></div>`;
+ return `<div class="py-12 px-6 max-w-7xl mx-auto fade"><div class="flex flex-col md:flex-row justify-between md:items-center mb-8 gap-4"><div><h1 class="text-2xl md:text-4xl font-bold text-[#245C45]">${u?'Dashboard Pengguna':'Dashboard Admin & Operasional'}</h1><p class="text-gray-600 text-sm">Halo, <b>${S.user.name}</b> (${S.user.email})</p></div>
+ <div class="flex items-center space-x-3"><div class="bg-white border p-1 rounded-full flex text-xs font-bold">${[['user','Pengguna'],['admin','Admin']].map(([m,l])=>`<button onclick="S.dash='${m}';render()" class="px-4 py-2 rounded-full ${S.dash===m?'bg-[#245C45] text-white':'text-gray-600'}">${l}</button>`).join('')}</div><button onclick="logout()" class="border-2 border-[#245C45] text-[#245C45] py-2 px-4 rounded-full text-xs font-semibold">Keluar</button></div></div>
+ <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">${u?mt('Itinerary AI',S.itins.length+' Rute','Tersimpan')+mt('Trip Aktif',S.books.length+' Trip','Open / Private')+mt('Destinasi',DEST.length+' Lokasi','Siap dieksplorasi')+mt('Status Member','Explorer','★ People Plesir'):mt('Kapasitas Open Trip','18 Kursi / Trip','Rp 239.000 / pax')+mt('Private Trip','Rp 1,95 Jt','Paket 4 Pax All-In')+mt('Status Sistem','Online','AI Engine & G-Maps Aktif')+mt('Mitra Vendor','Terverifikasi','Armada, Guide & UMKM')}</div>
+ <div class="space-y-12"><div><h2 class="text-2xl font-bold mb-6 border-b pb-4">Itinerary AI Tersimpan</h2>${S.itins.length?`<div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">${S.itins.map(i=>`<div class="${card} p-6 flex flex-col"><div class="flex justify-between mb-3"><h3 class="font-bold text-[#245C45] text-lg">${i.title}</h3><span class="bg-[#E99555]/10 text-[#E99555] text-xs font-bold px-2.5 py-1 rounded-full h-fit ml-2">${i.params?.days||1} Hari</span></div><p class="text-xs text-gray-500 mb-4 flex-grow">${i.summary}</p><div class="text-sm font-bold mb-4">💰 ${i.total}</div><button onclick="viewItin(${i.id})" class="w-full py-2.5 rounded-full border-2 border-[#245C45] text-[#245C45] hover:bg-[#245C45] hover:text-white font-semibold text-xs">Lihat Detail Rute</button></div>`).join('')}</div>`:empty('Belum ada itinerary tersimpan.','Buat Itinerary Sekarang','ai-planner',btn)}</div>
+ <div><h2 class="text-2xl font-bold mb-6 border-b pb-4">Trip Saya & Riwayat Pemesanan</h2>${S.books.length?`<div class="grid md:grid-cols-2 gap-6">${S.books.map(b=>`<div class="${card} p-6"><div class="flex justify-between mb-2"><span class="text-xs font-bold text-[#E99555] uppercase">${b.type}</span><span class="bg-[#A8C3A0]/20 text-[#245C45] text-xs font-bold px-3 py-1 rounded-full">${b.status}</span></div><h3 class="text-lg font-bold mb-1">${b.title}</h3><p class="text-xs text-gray-500 mb-4">📅 ${b.date}</p><div class="pt-3 border-t flex justify-between"><b class="text-[#245C45]">${b.price}</b><a href="https://wa.me/6289681856808" target="_blank" rel="noopener" class="text-xs font-bold text-[#245C45] hover:underline">Hubungi Admin WA ↗</a></div></div>`).join('')}</div>`:empty('Belum ada pemesanan trip.','Jelajahi Open Trip (Rp 239.000)','open-trip','px-6 py-3 rounded-full bg-[#E99555] text-white font-semibold text-sm')}</div></div></div>`}
+function viewItin(id){S.res=S.itins.find(i=>i.id===id);S.step=3;S.loading=false;go('ai-planner')}
+
+function toggleChat(){S.chatOpen=!S.chatOpen;chat.classList.toggle('hidden',!S.chatOpen);chat.classList.toggle('flex',S.chatOpen);if(S.chatOpen)drawChat()}
+function drawChat(){msgs.innerHTML=S.msgs.map(m=>`<div class="flex ${m.r==='user'?'justify-end':''}"><div class="max-w-[85%] p-3.5 rounded-2xl text-sm shadow-sm ${m.r==='user'?'bg-[#E99555] text-white':'bg-white border'}">${m.t}</div></div>`).join('');msgs.scrollTop=msgs.scrollHeight}
+function chatSend(e){e.preventDefault();const t=cin.value.trim();if(!t)return;S.msgs.push({r:'user',t:t.replace(/</g,'&lt;')});cin.value='';drawChat();
+ setTimeout(()=>{const q=t.toLowerCase();let r='Di Banyumas kamu bisa ke Lokawisata Baturraden, Hutan Pinus Limpakuwus, Curug Jenggala, hingga mencicipi Mendoan hangat! Coba AI Planner kami untuk jadwal otomatis sesuai budgetmu.';
+ if(/open trip|harga|paket/.test(q))r='Open Trip 1 Hari Rp 239.000 / orang (18 seat), sudah termasuk transportasi, tiket masuk, dan makan siang khas Banyumas. Daftar di menu Open Trip!';
+ else if(q.includes('private'))r='Private Trip Custom mulai Rp 1.950.000 / kelompok (4 orang) All-In: driver, tiket, makan, dan P3K.';
+ else if(/kuliner|makan|mendoan/.test(q))r='Kuliner wajib: Tempe Mendoan dengan sambal kecap, Sroto Sokaraja, dan Getuk Goreng Sokaraja sebagai oleh-oleh!';
+ else if(/curug|air terjun|baturraden/.test(q))r='Baturraden: Lokawisata Baturraden (Rp 25rb), Curug Jenggala (Rp 15rb), Telaga Sunyi (Rp 15rb), Hutan Pinus Limpakuwus (Rp 20rb).';
+ S.msgs.push({r:'bot',t:r});drawChat()},500)}
+
+function render(){
+ nav();
+ const V={home,explore,'ai-planner':planner,'open-trip':openTrip,'private-trip':privateTrip,login:authView,dashboard};
+ main.innerHTML=(V[S.view]||home)();
+ if(S.view==='explore')initMap();
+ lucide.createIcons();
+}
+window.addEventListener('DOMContentLoaded',render);
+</script></body></html>
